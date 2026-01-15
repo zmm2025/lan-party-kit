@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LAN Party Kit - Client</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Space Grotesk", "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+      }
+
+      body {
+        margin: 0;
+        background: #f2f0ea;
+        color: #1b1b1b;
+        display: grid;
+        place-items: center;
+        min-height: 100vh;
+      }
+
+      .card {
+        background: #ffffff;
+        border: 2px solid #1b1b1b;
+        padding: 24px;
+        width: min(360px, 90vw);
+        box-shadow: 8px 8px 0 #1b1b1b;
+      }
+
+      h1 {
+        font-size: 24px;
+        margin: 0 0 12px;
+      }
+
+      p {
+        margin: 0 0 12px;
+      }
+
+      button {
+        border: 2px solid #1b1b1b;
+        background: #ffb400;
+        color: #1b1b1b;
+        padding: 10px 14px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      #status {
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>LAN Party Kit</h1>
+      <p id="status">Connecting...</p>
+      <button id="ping" disabled>Send ping</button>
+      <p id="log"></p>
+    </div>
+
+    <script src="/vendor/colyseus.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>
