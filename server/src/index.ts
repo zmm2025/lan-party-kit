@@ -50,12 +50,14 @@ const buildJoinUrls = (hostHeader: string, protocol: string) => {
   return [`${protocol}://${hostHeader}/`];
 };
 
+// Static assets (client UI + Colyseus client library).
 app.use("/vendor", express.static(vendorPath));
 app.use(express.static(clientPath));
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
 
+// Host page and QR payload endpoint.
 app.get("/host", (_req, res) => {
   res.sendFile(path.join(clientPath, "host.html"));
 });
@@ -82,6 +84,7 @@ const gameServer = new Server({
 
 gameServer.define("lobby", LobbyRoom);
 
+// Start HTTP + WebSocket server for rooms and static client.
 gameServer.listen(port).then(() => {
   console.log(`Colyseus server listening on http://localhost:${port}`);
 });

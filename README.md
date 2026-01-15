@@ -1,10 +1,29 @@
 # LexPlay LAN Framework
 
-Local-first party-game framework for LexPlay / Run Jump Dev.
+Local-first party-game framework for LexPlay / Run Jump Dev. The goal is a Jackbox-style experience: one host machine runs the game server, players join via QR on the same Wi-Fi, and phone browsers act as controllers. The framework is designed to plug into a Unity template later without requiring paid hosting.
 
-- Host runs a local Colyseus server (authoritative rooms)
-- Players join via QR code on the same Wi-Fi
-- Phone clients run in the browser (custom UI per game)
+## Overview diagram
+
+```
+   host browser (/host)
+          |
+          | 1) fetch /host-data (QR + join URLs)
+          v
+   Node/Express + Colyseus
+          |
+          | 2) serves / (client) + /vendor + /host
+          | 3) WebSocket rooms (lobby)
+          v
+   player phones (/)
+```
+
+## Current architecture
+
+- `server/` Node + Express + Colyseus (authoritative rooms)
+- `client/` static phone UI served by the host machine
+- `protocol/` message format documentation
+
+The host page (`/host`) shows a QR code for joining and a live player list. Players join with nicknames and are considered ready immediately (no ready toggle).
 
 ## Local dev
 
@@ -15,7 +34,20 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:2567/host` to show the join QR.
+Open `http://localhost:2567/host` on the host machine. Scan the QR with a phone on the same Wi-Fi.
+
+## URLs and endpoints
+
+- `/` phone client
+- `/host` host page (QR + player list)
+- `/host-data` JSON (QR data + join URLs)
+- `/health` JSON health check
+
+## Client behavior
+
+- Join flow: nickname -> `joinOrCreate("lobby")`
+- Server broadcasts `lobby:state` with player list
+- Phone UI can send `client:event` (ping demo)
 
 ## Host address override
 
@@ -26,4 +58,6 @@ set HOST_ADDRESS=192.168.1.50
 npm run dev
 ```
 
-Status: In early development.
+## Project status
+
+Early development. Next planned steps include host-initiated game start events and Unity host integration.

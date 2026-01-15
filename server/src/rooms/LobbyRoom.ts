@@ -27,6 +27,7 @@ export class LobbyRoom extends Room {
       });
     });
 
+    // Client can rename once connected; hosts are excluded.
     this.onMessage("client:nickname", (client, message: { nickname?: string }) => {
       if (this.hostSessions.has(client.sessionId)) {
         return;
