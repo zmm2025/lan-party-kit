@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "node --loader ts-node/esm src/index.ts",
+    "dev": "tsx src/index.ts",
     "start": "node dist/index.js"
   },
   "dependencies": {
@@ -17,8 +17,8 @@
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^20.11.10",
-    "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "tsx": "^4.19.0"
   }
 }
