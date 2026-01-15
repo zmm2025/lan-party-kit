@@ -99,7 +99,7 @@ app.get("/host", async (req, res) => {
         background: #ffffff;
         border: 2px solid #1b1b1b;
         padding: 24px;
-        width: min(460px, 92vw);
+        width: min(520px, 92vw);
         box-shadow: 8px 8px 0 #1b1b1b;
         text-align: center;
       }
@@ -134,6 +134,23 @@ app.get("/host", async (req, res) => {
         height: 240px;
         image-rendering: crisp-edges;
       }
+
+      #players {
+        margin-top: 12px;
+        text-align: left;
+        display: grid;
+        gap: 6px;
+      }
+
+      #players li {
+        border: 1px solid #1b1b1b;
+        padding: 6px 10px;
+        background: #f7f3e8;
+      }
+
+      #status {
+        font-weight: 600;
+      }
     </style>
   </head>
   <body>
@@ -143,7 +160,41 @@ app.get("/host", async (req, res) => {
       <img src="${qrDataUrl}" alt="Join QR code" />
       <p>or go to</p>
       <ul>${safeJoinUrls}</ul>
+      <p id="status">Lobby offline.</p>
+      <p><strong>Players (<span id="player-count">0</span>)</strong></p>
+      <ul id="players"></ul>
     </div>
+
+    <script src="/vendor/colyseus.js"></script>
+    <script>
+      const statusEl = document.getElementById("status");
+      const playerCountEl = document.getElementById("player-count");
+      const playersEl = document.getElementById("players");
+
+      if (typeof Colyseus === "undefined") {
+        statusEl.textContent = "Client library failed to load.";
+      } else {
+        const protocol = location.protocol === "https:" ? "wss" : "ws";
+        const client = new Colyseus.Client(protocol + "://" + location.host);
+
+        client
+          .joinOrCreate("lobby", { role: "host" })
+          .then((room) => {
+            statusEl.textContent = "Lobby online.";
+
+            room.onMessage("lobby:state", (state) => {
+              playerCountEl.textContent = state.count ?? 0;
+              playersEl.innerHTML = (state.players || [])
+                .map((player) => "<li>" + player.nickname + "</li>")
+                .join("");
+            });
+          })
+          .catch((error) => {
+            console.error(error);
+            statusEl.textContent = "Lobby connection failed.";
+          });
+      }
+    </script>
   </body>
 </html>`);
   } catch (error) {
