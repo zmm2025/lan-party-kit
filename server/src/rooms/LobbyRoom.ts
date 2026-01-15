@@ -9,11 +9,15 @@ type ClientMessage = {
   payload?: unknown;
 };
 
-type PlayerInfo = {
+type ParticipantRole = "player" | "spectator";
+
+type ParticipantInfo = {
   nickname: string;
   ready: boolean;
   token: string;
   connected: boolean;
+  role: ParticipantRole;
+  lastPingMs?: number;
 };
 
 type LobbyConfig = {
@@ -25,10 +29,11 @@ type LobbyConfig = {
 const MAX_NICKNAME_LENGTH = 20;
 
 export class LobbyRoom extends Room {
-  private players = new Map<string, PlayerInfo>();
-  private sessionToPlayer = new Map<string, string>();
+  private participants = new Map<string, ParticipantInfo>();
+  private sessionToParticipant = new Map<string, string>();
   private hostSessions = new Set<string>();
   private phase: "lobby" | "in-game" = "lobby";
+  private lobbyLocked = false;
   private config: LobbyConfig = {
     requireReady: false,
     allowRejoin: true,
@@ -55,18 +60,23 @@ export class LobbyRoom extends Room {
         return;
       }
 
-      const playerId = this.sessionToPlayer.get(client.sessionId);
-      if (!playerId) {
+      const participantId = this.sessionToParticipant.get(client.sessionId);
+      if (!participantId) {
         return;
       }
 
-      const player = this.players.get(playerId);
-      if (!player) {
+      const participant = this.participants.get(participantId);
+      if (!participant) {
         return;
       }
 
-      const nickname = this.makeNickname(message.nickname ?? "", client.sessionId, playerId);
-      player.nickname = nickname;
+      const nickname = this.makeNickname(
+        message.nickname ?? "",
+        client.sessionId,
+        participant.role,
+        participantId
+      );
+      participant.nickname = nickname;
       this.broadcastState();
     });
 
@@ -75,17 +85,41 @@ export class LobbyRoom extends Room {
         return;
       }
 
-      const playerId = this.sessionToPlayer.get(client.sessionId);
-      if (!playerId) {
+      const participantId = this.sessionToParticipant.get(client.sessionId);
+      if (!participantId) {
         return;
       }
 
-      const player = this.players.get(playerId);
-      if (!player) {
+      const participant = this.participants.get(participantId);
+      if (!participant || participant.role !== "player") {
         return;
       }
 
-      player.ready = Boolean(message.ready);
+      participant.ready = Boolean(message.ready);
+      this.broadcastState();
+    });
+
+    this.onMessage("client:ping", (client, message: { sentAt?: number }) => {
+      const participantId = this.sessionToParticipant.get(client.sessionId);
+      if (!participantId) {
+        return;
+      }
+
+      const participant = this.participants.get(participantId);
+      if (!participant) {
+        return;
+      }
+
+      const sentAt = typeof message.sentAt === "number" ? message.sentAt : null;
+      if (sentAt) {
+        participant.lastPingMs = Math.max(0, Date.now() - sentAt);
+      }
+
+      client.send("server:pong", {
+        sentAt,
+        receivedAt: Date.now(),
+        pingMs: participant.lastPingMs ?? null
+      });
       this.broadcastState();
     });
 
@@ -110,6 +144,27 @@ export class LobbyRoom extends Room {
       });
       this.broadcastState();
     });
+
+    this.onMessage("host:lock", (client, message: { locked?: boolean }) => {
+      if (!this.hostSessions.has(client.sessionId)) {
+        return;
+      }
+
+      this.lobbyLocked = Boolean(message.locked);
+      this.broadcastState();
+    });
+
+    this.onMessage("host:kick", (client, message: { targetId?: string }) => {
+      if (!this.hostSessions.has(client.sessionId)) {
+        return;
+      }
+
+      if (!message?.targetId) {
+        return;
+      }
+
+      this.kickParticipant(message.targetId);
+    });
   }
 
   onAuth(_client: Client, options?: { role?: string; playerToken?: string }) {
@@ -118,7 +173,11 @@ export class LobbyRoom extends Room {
     }
 
     const playerToken = this.getPlayerToken(options);
-    const isRejoin = this.config.allowRejoin && playerToken && this.players.has(playerToken);
+    const isRejoin = this.config.allowRejoin && playerToken && this.participants.has(playerToken);
+
+    if (this.lobbyLocked && !isRejoin) {
+      return false;
+    }
 
     if (!this.config.allowMidgameJoin && this.phase === "in-game" && !isRejoin) {
       return false;
@@ -138,17 +197,20 @@ export class LobbyRoom extends Room {
           payload: { sessionId: client.sessionId }
         }
       });
-      client.send("lobby:config", { settings: this.config, phase: this.phase });
+      client.send("lobby:config", {
+        settings: { ...this.config, lobbyLocked: this.lobbyLocked },
+        phase: this.phase
+      });
       this.broadcastState();
       return;
     }
 
     const playerToken = this.getPlayerToken(options);
-    const existingPlayer = playerToken ? this.players.get(playerToken) : undefined;
+    const existingParticipant = playerToken ? this.participants.get(playerToken) : undefined;
 
-    if (existingPlayer && this.config.allowRejoin) {
-      existingPlayer.connected = true;
-      this.sessionToPlayer.set(client.sessionId, playerToken);
+    if (existingParticipant && this.config.allowRejoin) {
+      existingParticipant.connected = true;
+      this.sessionToParticipant.set(client.sessionId, playerToken);
       client.send("server:event", {
         from: "server",
         receivedAt: Date.now(),
@@ -156,52 +218,61 @@ export class LobbyRoom extends Room {
           type: "welcome",
           payload: {
             sessionId: client.sessionId,
-            nickname: existingPlayer.nickname,
-            token: existingPlayer.token,
+            nickname: existingParticipant.nickname,
+            token: existingParticipant.token,
             rejoined: true,
-            ready: existingPlayer.ready
+            ready: existingParticipant.ready,
+            role: existingParticipant.role
           }
         }
       });
-      client.send("lobby:config", { settings: this.config, phase: this.phase });
+      client.send("lobby:config", {
+        settings: { ...this.config, lobbyLocked: this.lobbyLocked },
+        phase: this.phase
+      });
       this.broadcastState();
       return;
     }
 
-    const nickname = this.makeNickname(options?.nickname ?? "", client.sessionId);
+    const role: ParticipantRole = options?.role === "spectator" ? "spectator" : "player";
+    const nickname = this.makeNickname(options?.nickname ?? "", client.sessionId, role);
     const token = playerToken || randomUUID();
-    const player: PlayerInfo = {
+    const participant: ParticipantInfo = {
       nickname,
       ready: false,
       token,
-      connected: true
+      connected: true,
+      role
     };
-    this.players.set(token, player);
-    this.sessionToPlayer.set(client.sessionId, token);
+    this.participants.set(token, participant);
+    this.sessionToParticipant.set(client.sessionId, token);
 
     client.send("server:event", {
       from: "server",
       receivedAt: Date.now(),
       message: {
         type: "welcome",
-        payload: { sessionId: client.sessionId, nickname, token }
+        payload: { sessionId: client.sessionId, nickname, token, role }
       }
     });
-    client.send("lobby:config", { settings: this.config, phase: this.phase });
+    client.send("lobby:config", {
+      settings: { ...this.config, lobbyLocked: this.lobbyLocked },
+      phase: this.phase
+    });
 
     this.broadcastState();
   }
 
   onLeave(client: Client) {
-    const playerId = this.sessionToPlayer.get(client.sessionId);
-    if (playerId) {
-      const player = this.players.get(playerId);
-      if (player && this.config.allowRejoin) {
-        player.connected = false;
+    const participantId = this.sessionToParticipant.get(client.sessionId);
+    if (participantId) {
+      const participant = this.participants.get(participantId);
+      if (participant && this.config.allowRejoin) {
+        participant.connected = false;
       } else {
-        this.players.delete(playerId);
+        this.participants.delete(participantId);
       }
-      this.sessionToPlayer.delete(client.sessionId);
+      this.sessionToParticipant.delete(client.sessionId);
     }
 
     this.hostSessions.delete(client.sessionId);
@@ -209,34 +280,55 @@ export class LobbyRoom extends Room {
   }
 
   private broadcastState() {
-    const allPlayers = [...this.players.entries()].map(([id, info]) => ({
-      id,
-      nickname: info.nickname,
-      ready: info.ready,
-      connected: info.connected
-    }));
-    const connectedPlayers = allPlayers.filter((player) => player.connected);
+    const players = [...this.participants.entries()]
+      .filter(([, info]) => info.role === "player")
+      .map(([id, info]) => ({
+        id,
+        nickname: info.nickname,
+        ready: info.ready,
+        connected: info.connected,
+        pingMs: info.lastPingMs ?? null
+      }));
+    const spectators = [...this.participants.entries()]
+      .filter(([, info]) => info.role === "spectator")
+      .map(([id, info]) => ({
+        id,
+        nickname: info.nickname,
+        connected: info.connected,
+        pingMs: info.lastPingMs ?? null
+      }));
+
+    const connectedPlayers = players.filter((player) => player.connected);
     const readyCount = connectedPlayers.filter((player) => player.ready).length;
 
     this.broadcast("lobby:state", {
-      players: allPlayers,
+      players,
+      spectators,
       count: connectedPlayers.length,
-      totalCount: allPlayers.length,
+      totalCount: players.length,
+      spectatorCount: spectators.filter((spectator) => spectator.connected).length,
+      totalSpectatorCount: spectators.length,
       readyCount,
       allReady: connectedPlayers.length > 0 && readyCount === connectedPlayers.length,
       phase: this.phase,
-      settings: this.config
+      settings: { ...this.config, lobbyLocked: this.lobbyLocked }
     });
   }
 
-  private makeNickname(raw: string, sessionId: string, excludePlayerId?: string) {
+  private makeNickname(
+    raw: string,
+    sessionId: string,
+    role: ParticipantRole,
+    excludeParticipantId?: string
+  ) {
     const base = raw.trim().replace(/\s+/g, " ").slice(0, MAX_NICKNAME_LENGTH);
-    const defaultName = `Player ${sessionId.slice(0, 4).toUpperCase()}`;
+    const prefix = role === "spectator" ? "Spectator" : "Player";
+    const defaultName = `${prefix} ${sessionId.slice(0, 4).toUpperCase()}`;
     let nickname = base || defaultName;
 
     const existingNames = new Set(
-      [...this.players.entries()]
-        .filter(([id]) => id !== excludePlayerId)
+      [...this.participants.entries()]
+        .filter(([id]) => id !== excludeParticipantId)
         .map(([, info]) => info.nickname.toLowerCase())
     );
 
@@ -255,7 +347,9 @@ export class LobbyRoom extends Room {
   }
 
   private allReady() {
-    const connectedPlayers = [...this.players.values()].filter((player) => player.connected);
+    const connectedPlayers = [...this.participants.values()].filter(
+      (participant) => participant.connected && participant.role === "player"
+    );
     if (connectedPlayers.length === 0) {
       return false;
     }
@@ -271,5 +365,28 @@ export class LobbyRoom extends Room {
       return null;
     }
     return token.trim() || null;
+  }
+
+  private kickParticipant(token: string) {
+    const participant = this.participants.get(token);
+    if (!participant) {
+      return;
+    }
+
+    const sessionId = [...this.sessionToParticipant.entries()].find(
+      ([, participantToken]) => participantToken === token
+    )?.[0];
+
+    if (sessionId) {
+      const client = this.clients.find((entry) => entry.sessionId === sessionId);
+      if (client) {
+        client.send("server:kick", { reason: "kicked" });
+        client.leave(4000, "kicked");
+      }
+      this.sessionToParticipant.delete(sessionId);
+    }
+
+    this.participants.delete(token);
+    this.broadcastState();
   }
 }

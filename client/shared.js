@@ -1,4 +1,19 @@
 window.AppShared = {
+  pingLevelFromMs(pingMs) {
+    if (typeof pingMs !== "number") {
+      return 0;
+    }
+    if (pingMs < 60) {
+      return 4;
+    }
+    if (pingMs < 120) {
+      return 3;
+    }
+    if (pingMs < 200) {
+      return 2;
+    }
+    return 1;
+  },
   ensureColyseus(statusEl) {
     if (typeof Colyseus === "undefined") {
       if (statusEl) {
@@ -27,7 +42,17 @@ window.AppShared = {
             tags.push("away");
           }
           const suffix = tags.length ? ` (${tags.join(", ")})` : "";
-          return `<li>${player.nickname}${suffix}</li>`;
+          const ping =
+            typeof player.pingMs === "number" ? ` - ${Math.round(player.pingMs)}ms` : "";
+          const level = window.AppShared.pingLevelFromMs(player.pingMs);
+          const wifi =
+            `<span class="wifi" data-level="${level}" aria-label="Connection strength">` +
+            `<span class="bar b1"></span>` +
+            `<span class="bar b2"></span>` +
+            `<span class="bar b3"></span>` +
+            `<span class="bar b4"></span>` +
+            `</span>`;
+          return `<li class="list-item"><span>${player.nickname}${suffix}${ping}</span>${wifi}</li>`;
         })
         .join("");
     }

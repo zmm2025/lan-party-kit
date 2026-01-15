@@ -15,11 +15,30 @@
 
       <label for="nickname">Nickname</label>
       <input id="nickname" maxlength="20" placeholder="John Doe" />
+      <div class="mode-row">
+        <label class="mode-option">
+          <input type="radio" name="join-mode" value="player" checked />
+          Play
+        </label>
+        <label class="mode-option">
+          <input type="radio" name="join-mode" value="spectator" />
+          Spectate
+        </label>
+      </div>
       <div class="row">
         <button id="join">Join lobby</button>
         <button id="ping" disabled>Send ping</button>
       </div>
 
+      <p class="ping-line">
+        <strong>Ping:</strong> <span id="ping-value">--</span>
+        <span class="wifi" id="ping-wifi" aria-label="Connection strength">
+          <span class="bar b1"></span>
+          <span class="bar b2"></span>
+          <span class="bar b3"></span>
+          <span class="bar b4"></span>
+        </span>
+      </p>
       <p><strong>Players (<span id="player-count">0</span>)</strong></p>
       <ul id="players"></ul>
       <p id="phase">Phase: Lobby</p>

@@ -81,6 +81,11 @@ button {
   cursor: pointer;
 }
 
+.secondary {
+  background: #1a1a1a;
+  color: #f5f5f5;
+}
+
 .hidden {
   display: none;
 }
@@ -106,4 +111,133 @@ button {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.mode-row {
+  display: flex;
+  gap: 16px;
+  margin: 0 0 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.mode-option {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 600;
+  min-width: 120px;
+}
+
+.mode-option input[type="radio"] {
+  margin: 0;
+  width: 18px;
+  height: 18px;
+  accent-color: #ffb400;
+}
+
+@media (max-width: 480px) {
+  .card.compact {
+    width: min(92vw, 360px);
+  }
+
+  .mode-row {
+    gap: 12px;
+  }
+
+  .mode-option {
+    min-width: 0;
+  }
+
+  .row {
+    flex-wrap: wrap;
+  }
+}
+
+.kick {
+  margin-left: auto;
+  background: #ff6b6b;
+  color: #1b1b1b;
+}
+
+.list-item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.host-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 8px;
+  text-align: left;
+}
+
+.host-columns section p {
+  margin-bottom: 8px;
+}
+
+@media (max-width: 640px) {
+  .host-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ping-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wifi {
+  display: inline-flex;
+  gap: 3px;
+  align-items: flex-end;
+  height: 16px;
+}
+
+.wifi .bar {
+  width: 4px;
+  background: #2f2f2f;
+  border: 1px solid #f5f5f5;
+  box-sizing: border-box;
+}
+
+.wifi .b1 {
+  height: 6px;
+}
+
+.wifi .b2 {
+  height: 9px;
+}
+
+.wifi .b3 {
+  height: 12px;
+}
+
+.wifi .b4 {
+  height: 15px;
+}
+
+.wifi[data-level="1"] .b1,
+.wifi[data-level="2"] .b1,
+.wifi[data-level="3"] .b1,
+.wifi[data-level="4"] .b1 {
+  background: #ffb400;
+}
+
+.wifi[data-level="2"] .b2,
+.wifi[data-level="3"] .b2,
+.wifi[data-level="4"] .b2 {
+  background: #ffb400;
+}
+
+.wifi[data-level="3"] .b3,
+.wifi[data-level="4"] .b3 {
+  background: #ffb400;
+}
+
+.wifi[data-level="4"] .b4 {
+  background: #ffb400;
 }

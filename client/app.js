@@ -7,13 +7,18 @@ const playerCountEl = document.getElementById("player-count");
 const playersEl = document.getElementById("players");
 const readyButton = document.getElementById("ready");
 const phaseEl = document.getElementById("phase");
+const pingValueEl = document.getElementById("ping-value");
+const pingWifiEl = document.getElementById("ping-wifi");
+const modeInputs = document.querySelectorAll('input[name="join-mode"]');
 
 const { roomName } = window.AppConfig;
-const { ensureColyseus, getWsEndpoint, renderPlayers } = window.AppShared;
+const { ensureColyseus, getWsEndpoint, renderPlayers, pingLevelFromMs } = window.AppShared;
 
 let room = null;
 let playerToken = localStorage.getItem("lpk_player_token");
 let isReady = false;
+let pingInterval = null;
+let currentRole = "player";
 
 const connect = async () => {
   if (!ensureColyseus(statusEl)) {
@@ -26,10 +31,13 @@ const connect = async () => {
   try {
     const client = new Colyseus.Client(getWsEndpoint());
     const nickname = nicknameInput.value.trim();
+    const role = getSelectedRole();
+    currentRole = role;
 
     room = await client.joinOrCreate(roomName, {
       nickname,
-      playerToken: playerToken || undefined
+      playerToken: playerToken || undefined,
+      role: role === "spectator" ? "spectator" : "player"
     });
     statusEl.textContent = `Connected: ${room.sessionId}`;
     pingButton.disabled = false;
@@ -42,7 +50,30 @@ const connect = async () => {
           playerToken = token;
           localStorage.setItem("lpk_player_token", token);
         }
+        if (message.message.payload?.role) {
+          currentRole = message.message.payload.role;
+        }
       }
+    });
+
+    room.onMessage("server:pong", (payload) => {
+      if (pingValueEl) {
+        pingValueEl.textContent =
+          typeof payload?.pingMs === "number" ? `${Math.round(payload.pingMs)}ms` : "--";
+      }
+      if (pingWifiEl) {
+        const level = pingLevelFromMs(payload?.pingMs);
+        pingWifiEl.dataset.level = String(level);
+      }
+    });
+
+    room.onMessage("server:kick", () => {
+      statusEl.textContent = "You were removed by the host.";
+      if (pingInterval) {
+        clearInterval(pingInterval);
+        pingInterval = null;
+      }
+      room.leave();
     });
 
     room.onMessage("game:start", () => {
@@ -61,10 +92,7 @@ const connect = async () => {
     });
 
     pingButton.addEventListener("click", () => {
-      room.send("client:event", {
-        type: "ping",
-        payload: { at: Date.now() }
-      });
+      sendPing();
     });
 
     readyButton.addEventListener("click", () => {
@@ -75,6 +103,8 @@ const connect = async () => {
       room.send("client:ready", { ready: isReady });
       updateReadyButton();
     });
+
+    startPingLoop();
   } catch (err) {
     statusEl.textContent = "Connection failed. Is the host running?";
     joinButton.disabled = false;
@@ -104,6 +134,12 @@ const updateReadyUi = (settings, state) => {
     return;
   }
 
+  if (currentRole === "spectator") {
+    readyButton.classList.add("hidden");
+    readyButton.disabled = true;
+    return;
+  }
+
   readyButton.classList.remove("hidden");
   readyButton.disabled = !room;
 
@@ -122,4 +158,28 @@ const updateReadyButton = () => {
     return;
   }
   readyButton.textContent = isReady ? "Ready (click to unready)" : "Ready up";
+};
+
+const getSelectedRole = () => {
+  for (const input of modeInputs) {
+    if (input.checked) {
+      return input.value;
+    }
+  }
+  return "player";
+};
+
+const sendPing = () => {
+  if (!room) {
+    return;
+  }
+  room.send("client:ping", { sentAt: Date.now() });
+};
+
+const startPingLoop = () => {
+  if (pingInterval) {
+    clearInterval(pingInterval);
+  }
+  pingInterval = setInterval(sendPing, 2000);
+  sendPing();
 };

@@ -17,9 +17,18 @@
       <ul id="join-urls"></ul>
       <p id="status">Lobby offline.</p>
       <p id="phase">Phase: Lobby</p>
+      <button id="lock-lobby" class="secondary" disabled>Lock Lobby</button>
       <button id="start-game" disabled>Start Game</button>
-      <p><strong>Players (<span id="player-count">0</span>)</strong></p>
-      <ul id="players"></ul>
+      <div class="host-columns">
+        <section>
+          <p><strong>Players (<span id="player-count">0</span>)</strong></p>
+          <ul id="players"></ul>
+        </section>
+        <section>
+          <p><strong>Spectators (<span id="spectator-count">0</span>)</strong></p>
+          <ul id="spectators"></ul>
+        </section>
+      </div>
     </div>
 
     <script src="/vendor/colyseus.js"></script>
