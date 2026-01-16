@@ -9,7 +9,7 @@
     <script src="/shared.js"></script>
   </head>
   <body class="host">
-    <div class="card">
+    <div class="card" id="host-card">
       <h1>Join the game</h1>
       <p>Scan to join on your phone:</p>
       <img id="qr" alt="Join QR code" />
@@ -29,6 +29,12 @@
           <ul id="spectators"></ul>
         </section>
       </div>
+    </div>
+    <div class="card hidden" id="host-blocked">
+      <h1>Host unavailable</h1>
+      <p>Only the device running the server can host the lobby.</p>
+      <p>Open the host page on the server machine, or join as a player instead.</p>
+      <button id="go-player">Go to Player Page</button>
     </div>
 
     <script src="/vendor/colyseus.js"></script>

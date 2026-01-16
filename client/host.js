@@ -8,6 +8,9 @@ const phaseEl = document.getElementById("phase");
 const lockButton = document.getElementById("lock-lobby");
 const spectatorCountEl = document.getElementById("spectator-count");
 const spectatorsEl = document.getElementById("spectators");
+const hostCard = document.getElementById("host-card");
+const hostBlockedCard = document.getElementById("host-blocked");
+const goPlayerButton = document.getElementById("go-player");
 
 const { roomName, hostDataEndpoint } = window.AppConfig;
 const { ensureColyseus, getWsEndpoint, renderJoinUrls, pingLevelFromMs } = window.AppShared;
@@ -15,6 +18,21 @@ const { ensureColyseus, getWsEndpoint, renderJoinUrls, pingLevelFromMs } = windo
 const DEFAULT_AVATAR = "\u{1F47E}";
 
 let lobbyLocked = false;
+let primaryJoinUrl = "/";
+
+const showHostBlocked = () => {
+  if (hostCard) {
+    hostCard.classList.add("hidden");
+  }
+  if (hostBlockedCard) {
+    hostBlockedCard.classList.remove("hidden");
+  }
+  if (goPlayerButton) {
+    goPlayerButton.onclick = () => {
+      window.location.href = primaryJoinUrl;
+    };
+  }
+};
 
 const connectHost = () => {
   if (!ensureColyseus(statusEl)) {
@@ -22,7 +40,6 @@ const connectHost = () => {
   }
 
   const client = new Colyseus.Client(getWsEndpoint());
-
   client
     .joinOrCreate(roomName, { role: "host" })
     .then((room) => {
@@ -66,7 +83,7 @@ const connectHost = () => {
     })
     .catch((error) => {
       console.error(error);
-      statusEl.textContent = "Lobby connection failed.";
+      showHostBlocked();
     });
 };
 
@@ -159,7 +176,9 @@ fetch(hostDataEndpoint)
   .then((res) => res.json())
   .then((data) => {
     qrImg.src = data.qrDataUrl;
-    renderJoinUrls(joinListEl, data.joinUrls || []);
+    const joinUrls = data.joinUrls || [];
+    primaryJoinUrl = joinUrls[0] || "/";
+    renderJoinUrls(joinListEl, joinUrls);
     connectHost();
   })
   .catch((error) => {

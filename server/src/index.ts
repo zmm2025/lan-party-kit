@@ -80,10 +80,13 @@ app.get("/host-data", async (req, res) => {
   const protocol = req.protocol;
   const joinUrls = buildJoinUrls(hostHeader, protocol);
   const primaryUrl = joinUrls[0];
-
   try {
     const qrDataUrl = await QRCode.toDataURL(primaryUrl, { margin: 1, width: 240 });
-    res.json({ joinUrls, qrDataUrl });
+    const payload: { joinUrls: string[]; qrDataUrl: string } = {
+      joinUrls,
+      qrDataUrl
+    };
+    res.json(payload);
   } catch (error) {
     console.error(error);
     res.status(500).send("Failed to generate QR code.");

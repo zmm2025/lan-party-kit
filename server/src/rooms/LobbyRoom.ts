@@ -1,5 +1,7 @@
 import colyseus from "colyseus";
 import { randomUUID } from "node:crypto";
+import os from "node:os";
+import type { IncomingMessage } from "node:http";
 
 const { Room } = colyseus;
 type Client = colyseus.Client;
@@ -37,6 +39,7 @@ export class LobbyRoom extends Room {
   private hostSessions = new Set<string>();
   private phase: "lobby" | "in-game" = "lobby";
   private lobbyLocked = false;
+  private hostAddresses = new Set<string>();
   private config: LobbyConfig = {
     requireReady: false,
     allowRejoin: true,
@@ -48,6 +51,7 @@ export class LobbyRoom extends Room {
       ...this.config,
       ...(options?.config ?? {})
     };
+    this.hostAddresses = this.getHostAddresses();
 
     this.onMessage("client:event", (client, message: ClientMessage) => {
       this.broadcast("server:event", {
@@ -198,9 +202,13 @@ export class LobbyRoom extends Room {
     });
   }
 
-  onAuth(_client: Client, options?: { role?: string; playerToken?: string }) {
+  onAuth(
+    _client: Client,
+    options?: { role?: string; playerToken?: string },
+    request?: IncomingMessage
+  ) {
     if (options?.role === "host") {
-      return true;
+      return this.isHostRequest(request);
     }
 
     const playerToken = this.getPlayerToken(options);
@@ -242,7 +250,7 @@ export class LobbyRoom extends Room {
     const playerToken = this.getPlayerToken(options);
     const existingParticipant = playerToken ? this.participants.get(playerToken) : undefined;
 
-    if (existingParticipant && this.config.allowRejoin) {
+    if (existingParticipant && playerToken && this.config.allowRejoin) {
       existingParticipant.connected = true;
       if (existingParticipant.role === "player" && !existingParticipant.avatar) {
         existingParticipant.avatar = DEFAULT_AVATAR;
@@ -441,5 +449,37 @@ export class LobbyRoom extends Room {
 
     this.participants.delete(token);
     this.broadcastState();
+  }
+
+  private isHostRequest(request?: IncomingMessage) {
+    const remoteAddress = request?.socket?.remoteAddress;
+    if (!remoteAddress) {
+      return false;
+    }
+    const normalized = this.normalizeAddress(remoteAddress);
+    return this.hostAddresses.has(normalized);
+  }
+
+  private normalizeAddress(address: string) {
+    const trimmed = address.trim();
+    const withoutZone = trimmed.includes("%") ? trimmed.split("%")[0] : trimmed;
+    if (withoutZone.startsWith("::ffff:")) {
+      return withoutZone.slice("::ffff:".length);
+    }
+    return withoutZone;
+  }
+
+  private getHostAddresses() {
+    const addresses = new Set<string>(["127.0.0.1", "::1"]);
+    const interfaces = os.networkInterfaces();
+    for (const details of Object.values(interfaces)) {
+      for (const info of details ?? []) {
+        if (!info.address) {
+          continue;
+        }
+        addresses.add(this.normalizeAddress(info.address));
+      }
+    }
+    return addresses;
   }
 }

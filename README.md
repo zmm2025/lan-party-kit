@@ -11,6 +11,8 @@ npm install
 npm run dev
 ```
 
+The host interface must be opened on the same machine running the server (host connections are only accepted from the server machine).
+
 Open `http://localhost:2567/host` on the host machine. Scan the QR with a phone on the same Wi-Fi.
 
 ## Repo layout

@@ -5,6 +5,9 @@ This folder documents client/host/server message formats.
 ## Lobby messages
 
 ### Client -> Server
+- `joinOrCreate("lobby")` options:
+  - `{ nickname?: string, role?: "player" | "spectator" | "host", playerToken?: string }`
+  - `role: "host"` is only allowed from the server machine.
 - `client:event` payload:
   - `{ type: string, payload?: unknown }`
 - `client:ping` payload:
