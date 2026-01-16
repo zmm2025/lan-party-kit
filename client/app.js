@@ -216,10 +216,18 @@ const connect = async () => {
   } catch (err) {
     const errorInfo = parseJoinError(err);
     const joinMessage = joinErrorMessage(errorInfo);
-    statusEl.textContent =
-      joinMessage ||
-      errorInfo?.message ||
-      "Connection failed. Is the host running?";
+    const rawMessage = err?.message ?? errorInfo?.message ?? "";
+    const isLobbyFull =
+      typeof rawMessage === "string" && rawMessage.includes("LOBBY_FULL");
+
+    if (isLobbyFull) {
+      statusEl.textContent = "Lobby full.";
+    } else {
+      statusEl.textContent =
+        joinMessage ||
+        errorInfo?.message ||
+        "Connection failed. Is the host running?";
+    }
     joinButton.disabled = false;
     console.error(err);
   }
