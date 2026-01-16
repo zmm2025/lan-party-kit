@@ -79,6 +79,18 @@ button {
   padding: 10px 14px;
   font-weight: 600;
   cursor: pointer;
+  box-shadow: 3px 3px 0 #f5f5f5;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.15s ease;
+}
+
+button:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 #f5f5f5;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .secondary {
@@ -122,18 +134,45 @@ button {
 }
 
 .mode-option {
+  position: relative;
   display: inline-flex;
-  gap: 8px;
   align-items: center;
   font-weight: 600;
   min-width: 120px;
 }
 
 .mode-option input[type="radio"] {
-  margin: 0;
-  width: 18px;
-  height: 18px;
-  accent-color: #ffb400;
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mode-option span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid #f5f5f5;
+  background: #0f0f0f;
+  color: #f5f5f5;
+  min-width: 96px;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.mode-option input[type="radio"]:checked + span {
+  background: #ffb400;
+  color: #1b1b1b;
+  border-color: #ffb400;
+}
+
+.mode-option input[type="radio"]:focus-visible + span {
+  outline: 2px solid #ffb400;
+  outline-offset: 2px;
+}
+
+.mode-option span {
+  cursor: pointer;
 }
 
 @media (max-width: 480px) {
@@ -216,6 +255,7 @@ button {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  box-shadow: 2px 2px 0 #f5f5f5;
 }
 
 .avatar-choice.selected {
