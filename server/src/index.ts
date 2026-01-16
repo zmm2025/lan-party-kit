@@ -29,8 +29,6 @@ const lobbyConfig = {
   allowRejoin: parseEnvBool(process.env.LOBBY_ALLOW_REJOIN, true),
   allowMidgameJoin: parseEnvBool(process.env.LOBBY_ALLOW_MIDGAME_JOIN, false)
 };
-const hostSecretRaw = process.env.HOST_SECRET;
-const hostSecret = hostSecretRaw && hostSecretRaw.trim() ? hostSecretRaw.trim() : null;
 
 const getLanAddresses = () => {
   const interfaces = os.networkInterfaces();
@@ -82,19 +80,12 @@ app.get("/host-data", async (req, res) => {
   const protocol = req.protocol;
   const joinUrls = buildJoinUrls(hostHeader, protocol);
   const primaryUrl = joinUrls[0];
-  const includeHostToken =
-    typeof req.query.includeHostToken === "string" &&
-    ["1", "true", "yes", "on"].includes(req.query.includeHostToken.trim().toLowerCase());
-
   try {
     const qrDataUrl = await QRCode.toDataURL(primaryUrl, { margin: 1, width: 240 });
-    const payload: { joinUrls: string[]; qrDataUrl: string; hostToken?: string } = {
+    const payload: { joinUrls: string[]; qrDataUrl: string } = {
       joinUrls,
       qrDataUrl
     };
-    if (hostSecret && includeHostToken) {
-      payload.hostToken = hostSecret;
-    }
     res.json(payload);
   } catch (error) {
     console.error(error);
@@ -107,7 +98,7 @@ const gameServer = new Server({
   transport: new WebSocketTransport({ server })
 });
 
-gameServer.define("lobby", LobbyRoom, { config: lobbyConfig, hostSecret });
+gameServer.define("lobby", LobbyRoom, { config: lobbyConfig });
 
 // Start HTTP + WebSocket server for rooms and static client.
 gameServer.listen(port).then(() => {

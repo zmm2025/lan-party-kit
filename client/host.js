@@ -9,13 +9,12 @@ const lockButton = document.getElementById("lock-lobby");
 const spectatorCountEl = document.getElementById("spectator-count");
 const spectatorsEl = document.getElementById("spectators");
 
-const { roomName, hostDataEndpoint, hostToken: configuredHostToken } = window.AppConfig;
+const { roomName, hostDataEndpoint } = window.AppConfig;
 const { ensureColyseus, getWsEndpoint, renderJoinUrls, pingLevelFromMs } = window.AppShared;
 
 const DEFAULT_AVATAR = "\u{1F47E}";
 
 let lobbyLocked = false;
-let hostToken = configuredHostToken || "";
 
 const connectHost = () => {
   if (!ensureColyseus(statusEl)) {
@@ -23,10 +22,8 @@ const connectHost = () => {
   }
 
   const client = new Colyseus.Client(getWsEndpoint());
-  const joinOptions = { role: "host", hostToken: hostToken || undefined };
-
   client
-    .joinOrCreate(roomName, joinOptions)
+    .joinOrCreate(roomName, { role: "host" })
     .then((room) => {
       statusEl.textContent = "Lobby online.";
       lockButton.addEventListener("click", () => {
@@ -162,9 +159,6 @@ fetch(hostDataEndpoint)
   .then((data) => {
     qrImg.src = data.qrDataUrl;
     renderJoinUrls(joinListEl, data.joinUrls || []);
-    if (typeof data.hostToken === "string") {
-      hostToken = data.hostToken;
-    }
     connectHost();
   })
   .catch((error) => {
