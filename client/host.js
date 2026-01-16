@@ -123,42 +123,63 @@ const renderHostList = (listEl, countEl, items, room, options = {}) => {
     return;
   }
 
-  listEl.innerHTML = items
-    .map((participant) => {
-      const avatarValue = participant.avatar ?? options.defaultAvatar;
-      const avatar = avatarValue
-        ? `<span class="avatar" aria-hidden="true">${avatarValue}</span>`
-        : "";
-      const tags = [];
-      if (!options.hideReady && participant.ready) {
-        tags.push("ready");
-      }
-      if (participant.connected === false) {
-        tags.push("away");
-      }
-      const suffix = tags.length ? ` (${tags.join(", ")})` : "";
-      const ping =
-        typeof participant.pingMs === "number" ? ` - ${Math.round(participant.pingMs)}ms` : "";
-      const level = pingLevelFromMs(participant.pingMs);
-      const wifi =
-        `<span class="wifi" data-level="${level}" aria-label="Connection strength">` +
-        `<span class="bar b1"></span>` +
-        `<span class="bar b2"></span>` +
-        `<span class="bar b3"></span>` +
-        `<span class="bar b4"></span>` +
-        `</span>`;
-      return (
-        `<li class="list-item">` +
-        `<span class="player-name">` +
-        `${avatar}` +
-        `<span class="nickname">${participant.nickname}${suffix}${ping}</span>` +
-        `</span>` +
-        `${wifi}` +
-        `<button class="kick" data-kick-id="${participant.id}">Kick</button>` +
-        `</li>`
-      );
-    })
-    .join("");
+  const fragment = document.createDocumentFragment();
+  items.forEach((participant) => {
+    const listItem = document.createElement("li");
+    listItem.classList.add("list-item");
+
+    const playerName = document.createElement("span");
+    playerName.classList.add("player-name");
+
+    const avatarValue = participant.avatar ?? options.defaultAvatar;
+    if (avatarValue) {
+      const avatar = document.createElement("span");
+      avatar.classList.add("avatar");
+      avatar.setAttribute("aria-hidden", "true");
+      avatar.textContent = avatarValue;
+      playerName.appendChild(avatar);
+    }
+
+    const tags = [];
+    if (!options.hideReady && participant.ready) {
+      tags.push("ready");
+    }
+    if (participant.connected === false) {
+      tags.push("away");
+    }
+    const suffix = tags.length ? ` (${tags.join(", ")})` : "";
+    const ping =
+      typeof participant.pingMs === "number" ? ` - ${Math.round(participant.pingMs)}ms` : "";
+
+    const nickname = document.createElement("span");
+    nickname.classList.add("nickname");
+    nickname.textContent = `${participant.nickname}${suffix}${ping}`;
+    playerName.appendChild(nickname);
+
+    const level = pingLevelFromMs(participant.pingMs);
+    const wifi = document.createElement("span");
+    wifi.classList.add("wifi");
+    wifi.setAttribute("data-level", level);
+    wifi.setAttribute("aria-label", "Connection strength");
+
+    ["b1", "b2", "b3", "b4"].forEach((barClass) => {
+      const bar = document.createElement("span");
+      bar.classList.add("bar", barClass);
+      wifi.appendChild(bar);
+    });
+
+    const kickButton = document.createElement("button");
+    kickButton.classList.add("kick");
+    kickButton.setAttribute("data-kick-id", participant.id);
+    kickButton.textContent = "Kick";
+
+    listItem.appendChild(playerName);
+    listItem.appendChild(wifi);
+    listItem.appendChild(kickButton);
+    fragment.appendChild(listItem);
+  });
+
+  listEl.replaceChildren(fragment);
 
   listEl.onclick = (event) => {
     const button = event.target.closest("button[data-kick-id]");

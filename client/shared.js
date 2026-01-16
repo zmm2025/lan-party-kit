@@ -31,42 +31,60 @@ window.AppShared = {
     if (countEl) {
       countEl.textContent = state.count ?? 0;
     }
-    if (playersEl) {
-      playersEl.innerHTML = (state.players || [])
-        .map((player) => {
-          const avatar = player.avatar
-            ? `<span class="avatar" aria-hidden="true">${player.avatar}</span>`
-            : "";
-          const tags = [];
-          if (player.ready) {
-            tags.push("ready");
-          }
-          if (player.connected === false) {
-            tags.push("away");
-          }
-          const suffix = tags.length ? ` (${tags.join(", ")})` : "";
-          const ping =
-            typeof player.pingMs === "number" ? ` - ${Math.round(player.pingMs)}ms` : "";
-          const level = window.AppShared.pingLevelFromMs(player.pingMs);
-          const wifi =
-            `<span class="wifi" data-level="${level}" aria-label="Connection strength">` +
-            `<span class="bar b1"></span>` +
-            `<span class="bar b2"></span>` +
-            `<span class="bar b3"></span>` +
-            `<span class="bar b4"></span>` +
-            `</span>`;
-          return (
-            `<li class="list-item">` +
-            `<span class="player-name">` +
-            `${avatar}` +
-            `<span class="nickname">${player.nickname}${suffix}${ping}</span>` +
-            `</span>` +
-            `${wifi}` +
-            `</li>`
-          );
-        })
-        .join("");
+    if (!playersEl) {
+      return;
     }
+
+    const fragment = document.createDocumentFragment();
+    (state.players || []).forEach((player) => {
+      const listItem = document.createElement("li");
+      listItem.classList.add("list-item");
+
+      const playerName = document.createElement("span");
+      playerName.classList.add("player-name");
+
+      if (player.avatar) {
+        const avatar = document.createElement("span");
+        avatar.classList.add("avatar");
+        avatar.setAttribute("aria-hidden", "true");
+        avatar.textContent = player.avatar;
+        playerName.appendChild(avatar);
+      }
+
+      const tags = [];
+      if (player.ready) {
+        tags.push("ready");
+      }
+      if (player.connected === false) {
+        tags.push("away");
+      }
+      const suffix = tags.length ? ` (${tags.join(", ")})` : "";
+      const ping =
+        typeof player.pingMs === "number" ? ` - ${Math.round(player.pingMs)}ms` : "";
+
+      const nickname = document.createElement("span");
+      nickname.classList.add("nickname");
+      nickname.textContent = `${player.nickname}${suffix}${ping}`;
+      playerName.appendChild(nickname);
+
+      const level = window.AppShared.pingLevelFromMs(player.pingMs);
+      const wifi = document.createElement("span");
+      wifi.classList.add("wifi");
+      wifi.setAttribute("data-level", level);
+      wifi.setAttribute("aria-label", "Connection strength");
+
+      ["b1", "b2", "b3", "b4"].forEach((barClass) => {
+        const bar = document.createElement("span");
+        bar.classList.add("bar", barClass);
+        wifi.appendChild(bar);
+      });
+
+      listItem.appendChild(playerName);
+      listItem.appendChild(wifi);
+      fragment.appendChild(listItem);
+    });
+
+    playersEl.replaceChildren(fragment);
   },
   renderJoinUrls(joinListEl, urls) {
     if (joinListEl) {
