@@ -207,11 +207,11 @@ export class LobbyRoom extends Room {
     const isRejoin = this.config.allowRejoin && playerToken && this.participants.has(playerToken);
 
     if (this.lobbyLocked && !isRejoin) {
-      return false;
+      throw new Error("Lobby locked");
     }
 
     if (!this.config.allowMidgameJoin && this.phase === "in-game" && !isRejoin) {
-      return false;
+      throw new Error("Game already started");
     }
 
     return true;

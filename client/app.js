@@ -112,6 +112,14 @@ const connect = async () => {
     pingButton.disabled = false;
     updateAvatarUi();
 
+    room.onError((code, message) => {
+      const fallback = "Unable to join the lobby.";
+      const errorMessage = typeof message === "string" && message.trim() ? message : fallback;
+      statusEl.textContent = errorMessage;
+      joinButton.disabled = false;
+      console.error("Room error", code, message);
+    });
+
     room.onMessage("server:event", (message) => {
       logEl.textContent = `Server: ${JSON.stringify(message)}`;
       if (message?.message?.type === "welcome") {

@@ -38,6 +38,13 @@ This folder documents client/host/server message formats.
 - `server:kick` payload:
   - `{ reason: string }`
 
+### Error surface
+Authentication rejections are raised as Colyseus room errors; clients should subscribe to
+`room.onError((code, message) => ...)` and display the server-provided `message` when present.
+Typical messages include:
+- `"Lobby locked"` when the host has locked the lobby.
+- `"Game already started"` when mid-game joins are disallowed.
+
 ## Host data endpoint
 
 - `GET /host-data` returns:
