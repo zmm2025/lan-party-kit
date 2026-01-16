@@ -37,17 +37,22 @@ export class LobbyRoom extends Room {
   private hostSessions = new Set<string>();
   private phase: "lobby" | "in-game" = "lobby";
   private lobbyLocked = false;
+  private hostSecret: string | null = null;
   private config: LobbyConfig = {
     requireReady: false,
     allowRejoin: true,
     allowMidgameJoin: false
   };
 
-  onCreate(options?: { config?: Partial<LobbyConfig> }) {
+  onCreate(options?: { config?: Partial<LobbyConfig>; hostSecret?: string | null }) {
     this.config = {
       ...this.config,
       ...(options?.config ?? {})
     };
+    const configuredHostSecret = options?.hostSecret;
+    if (typeof configuredHostSecret === "string" && configuredHostSecret.trim()) {
+      this.hostSecret = configuredHostSecret.trim();
+    }
 
     this.onMessage("client:event", (client, message: ClientMessage) => {
       this.broadcast("server:event", {
@@ -198,9 +203,16 @@ export class LobbyRoom extends Room {
     });
   }
 
-  onAuth(_client: Client, options?: { role?: string; playerToken?: string }) {
+  onAuth(
+    _client: Client,
+    options?: { role?: string; playerToken?: string; hostToken?: string }
+  ) {
     if (options?.role === "host") {
-      return true;
+      if (!this.hostSecret) {
+        return true;
+      }
+      const hostToken = typeof options.hostToken === "string" ? options.hostToken.trim() : "";
+      return hostToken === this.hostSecret;
     }
 
     const playerToken = this.getPlayerToken(options);
@@ -242,7 +254,7 @@ export class LobbyRoom extends Room {
     const playerToken = this.getPlayerToken(options);
     const existingParticipant = playerToken ? this.participants.get(playerToken) : undefined;
 
-    if (existingParticipant && this.config.allowRejoin) {
+    if (existingParticipant && playerToken && this.config.allowRejoin) {
       existingParticipant.connected = true;
       if (existingParticipant.role === "player" && !existingParticipant.avatar) {
         existingParticipant.avatar = DEFAULT_AVATAR;

@@ -5,6 +5,9 @@ This folder documents client/host/server message formats.
 ## Lobby messages
 
 ### Client -> Server
+- `joinOrCreate("lobby")` options:
+  - `{ nickname?: string, role?: "player" | "spectator" | "host", playerToken?: string, hostToken?: string }`
+  - `role: "host"` requires `hostToken` when `HOST_SECRET` is configured on the server.
 - `client:event` payload:
   - `{ type: string, payload?: unknown }`
 - `client:ping` payload:
@@ -42,3 +45,5 @@ This folder documents client/host/server message formats.
 
 - `GET /host-data` returns:
   - `{ joinUrls: string[], qrDataUrl: string }`
+- `GET /host-data?includeHostToken=1` returns:
+  - `{ joinUrls: string[], qrDataUrl: string, hostToken?: string }`

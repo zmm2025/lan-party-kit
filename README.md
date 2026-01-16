@@ -11,6 +11,15 @@ npm install
 npm run dev
 ```
 
+Set a host secret to restrict host connections:
+
+```
+set HOST_SECRET=change-me
+npm run dev
+```
+
+When `HOST_SECRET` is set, host connections must include `hostToken` matching the secret (the host page reads it from `/host-data?includeHostToken=1` or `client/config.js`).
+
 Open `http://localhost:2567/host` on the host machine. Scan the QR with a phone on the same Wi-Fi.
 
 ## Repo layout
