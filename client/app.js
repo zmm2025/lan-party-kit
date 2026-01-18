@@ -7,9 +7,11 @@ const modeRow = document.querySelector(".mode-row");
 const playerCountEl = document.getElementById("player-count");
 const playersEl = document.getElementById("players");
 const readyButton = document.getElementById("ready");
-const phaseEl = document.getElementById("phase");
 const pingValueEl = document.getElementById("ping-value");
 const pingWifiEl = document.getElementById("ping-wifi");
+const nicknameClearButton = document.getElementById("nickname-clear");
+const nicknameSaveButton = document.getElementById("nickname-save");
+const leaveButton = document.getElementById("leave");
 const modeInputs = document.querySelectorAll('input[name="join-mode"]');
 
 const { roomName } = window.AppConfig;
@@ -26,7 +28,6 @@ let playerToken = localStorage.getItem("lpk_player_token");
 let isReady = false;
 let pingInterval = null;
 let currentRole = "player";
-let currentPhase = "lobby";
 let currentAvatar = "";
 let nicknameValue = "";
 
@@ -34,7 +35,7 @@ const MAX_AVATAR_LENGTH = 8;
 const DEFAULT_NICKNAME = nicknameInput?.placeholder?.trim() || "John Doe";
 const avatarButtonBaseClasses =
   "flex h-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-950/80 text-lg text-slate-100 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-amber-400/40";
-const avatarButtonSelectedClasses = "border-amber-400 bg-amber-400 text-slate-900";
+const avatarButtonSelectedClasses = "border-amber-400 text-amber-200";
 const avatarOptions = [
   "\u{1F47E}",
   "\u{1F916}",
@@ -156,6 +157,7 @@ const connect = async () => {
     statusEl.textContent = "Connected.";
     updateAvatarUi();
     updateJoinUi();
+    updateNicknameControls();
 
     room.onMessage("server:event", (message) => {
       if (message?.message?.type === "welcome") {
@@ -177,6 +179,7 @@ const connect = async () => {
         }
         updateAvatarUi();
         updateJoinUi();
+        updateNicknameControls();
       }
     });
 
@@ -200,21 +203,15 @@ const connect = async () => {
       room.leave();
       room = null;
       updateJoinUi();
-    });
-
-    room.onMessage("game:start", () => {
-      statusEl.textContent = "Game started.";
-      updatePhase("in-game");
+      updateNicknameControls();
     });
 
     room.onMessage("lobby:config", (config) => {
-      updatePhase(config?.phase);
       updateReadyUi(config?.settings);
     });
 
     room.onMessage("lobby:state", (state) => {
       renderPlayers(playersEl, playerCountEl, state);
-      updatePhase(state.phase);
       updateReadyUi(state.settings, state);
       updateAvatarUi(state);
     });
@@ -250,6 +247,21 @@ const connect = async () => {
 };
 
 joinButton.addEventListener("click", connect);
+leaveButton?.addEventListener("click", () => {
+  if (!room) {
+    return;
+  }
+  room.leave();
+  room = null;
+  statusEl.textContent = "Left lobby.";
+  if (pingInterval) {
+    clearInterval(pingInterval);
+    pingInterval = null;
+  }
+  updateJoinUi();
+  updateReadyUi();
+  updateNicknameControls();
+});
 
 nicknameInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
@@ -266,6 +278,23 @@ nicknameInput.addEventListener("blur", () => {
 });
 
 nicknameInput.addEventListener("change", () => {
+  commitNicknameChange();
+});
+
+nicknameInput.addEventListener("input", () => {
+  updateNicknameControls();
+});
+
+nicknameClearButton?.addEventListener("click", () => {
+  if (!nicknameInput) {
+    return;
+  }
+  nicknameInput.value = "";
+  nicknameInput.focus();
+  updateNicknameControls();
+});
+
+nicknameSaveButton?.addEventListener("click", () => {
   commitNicknameChange();
 });
 
@@ -295,6 +324,10 @@ const updateJoinUi = () => {
   if (joinButton) {
     joinButton.disabled = isConnected;
   }
+  if (leaveButton) {
+    leaveButton.classList.toggle("hidden", !isConnected);
+    leaveButton.disabled = !isConnected;
+  }
   if (modeRow) {
     modeRow.classList.toggle("hidden", isConnected);
   }
@@ -307,14 +340,6 @@ if (avatarPicker) {
   avatarPicker.addEventListener("click", handleAvatarPickerEvent);
   avatarPicker.addEventListener("pointerup", handleAvatarPickerEvent);
 }
-
-const updatePhase = (phase) => {
-  currentPhase = phase === "in-game" ? "in-game" : "lobby";
-  if (phaseEl) {
-    phaseEl.textContent = `Phase: ${phase === "in-game" ? "In Game" : "Lobby"}`;
-  }
-  updateAvatarUi();
-};
 
 const updateReadyUi = (settings, state) => {
   const requireReady = settings?.requireReady;
@@ -382,10 +407,8 @@ const setSelectedAvatar = (avatar) => {
   buttons.forEach((button) => {
     const matches = button.getAttribute("data-avatar") === avatar;
     button.classList.toggle("border-amber-400", matches);
-    button.classList.toggle("bg-amber-400", matches);
-    button.classList.toggle("text-slate-900", matches);
+    button.classList.toggle("text-amber-200", matches);
     button.classList.toggle("border-slate-700", !matches);
-    button.classList.toggle("bg-slate-950/80", !matches);
     button.classList.toggle("text-slate-100", !matches);
     button.setAttribute("aria-pressed", matches ? "true" : "false");
   });
@@ -422,6 +445,18 @@ const commitNicknameChange = () => {
   if (room) {
     room.send("client:nickname", { nickname: nextNickname });
   }
+  updateNicknameControls();
+};
+
+const updateNicknameControls = () => {
+  if (!nicknameInput) {
+    return;
+  }
+  const value = nicknameInput.value.trim();
+  const canClear = value.length > 0;
+  const canSave = Boolean(room) && value.length > 0 && value !== nicknameValue;
+  nicknameClearButton?.classList.toggle("hidden", !canClear);
+  nicknameSaveButton?.classList.toggle("hidden", !canSave);
 };
 
 const updateAvatarUi = (state) => {
@@ -486,3 +521,4 @@ const startPingLoop = () => {
 
 updateAvatarUi();
 updateJoinUi();
+updateNicknameControls();

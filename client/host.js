@@ -3,7 +3,6 @@ const playerCountEl = document.getElementById("player-count");
 const playersEl = document.getElementById("players");
 const qrImg = document.getElementById("qr");
 const startButton = document.getElementById("start-game");
-const phaseEl = document.getElementById("phase");
 const lockButton = document.getElementById("lock-lobby");
 const spectatorCountEl = document.getElementById("spectator-count");
 const spectatorsEl = document.getElementById("spectators");
@@ -67,7 +66,6 @@ const connectHost = () => {
       });
 
       room.onMessage("lobby:config", (config) => {
-        updatePhase(config?.phase);
         updateStartButton(config?.settings, { count: 0, allReady: false, phase: config?.phase });
         lobbyLocked = Boolean(config?.settings?.lobbyLocked);
         updateLockButton();
@@ -80,7 +78,6 @@ const connectHost = () => {
         renderHostList(spectatorsEl, spectatorCountEl, state.spectators || [], room, {
           hideReady: true
         });
-        updatePhase(state.phase);
         updateStartButton(state.settings, state);
         lobbyLocked = Boolean(state?.settings?.lobbyLocked);
         updateLockButton();
@@ -90,12 +87,6 @@ const connectHost = () => {
       console.error(error);
       showHostBlocked();
     });
-};
-
-const updatePhase = (phase) => {
-  if (phaseEl) {
-    phaseEl.textContent = `Phase: ${phase === "in-game" ? "In Game" : "Lobby"}`;
-  }
 };
 
 const updateStartButton = (settings, state) => {
@@ -132,7 +123,7 @@ const renderHostList = (listEl, countEl, items, room, options = {}) => {
   items.forEach((participant) => {
     const listItem = document.createElement("li");
     listItem.className =
-      "flex items-center justify-between gap-3 rounded-2xl border border-slate-800/80 bg-slate-900/70 px-3 py-2";
+      "flex items-center gap-3 rounded-2xl border border-slate-800/80 bg-slate-900/70 px-3 py-2";
 
     const playerName = document.createElement("span");
     playerName.className = "flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-100";
@@ -162,7 +153,7 @@ const renderHostList = (listEl, countEl, items, room, options = {}) => {
 
     const level = pingLevelFromMs(participant.pingMs);
     const pingWrap = document.createElement("span");
-    pingWrap.className = "flex items-center gap-2 text-xs text-slate-200";
+    pingWrap.className = "ml-auto flex items-center gap-2 text-xs text-slate-200";
     const wifi = document.createElement("span");
     wifi.className = "flex items-end gap-1";
     wifi.setAttribute("aria-label", "Connection strength");
