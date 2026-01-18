@@ -20,6 +20,9 @@ This folder documents client/host/server message formats.
   - `{ ready?: boolean }`
 - `client:avatar` payload:
   - `{ avatar?: string }`
+> **Note for Unity integrations:** host controls and lobby configuration are now driven via HTTP
+> endpoints (see [Lobby HTTP endpoints](#lobby-http-endpoints)). The WebSocket `host:*` messages
+> below are primarily used by the browser host UI.
 - `host:lock` payload:
   - `{ locked: boolean }`
 - `host:kick` payload:
@@ -53,6 +56,27 @@ This folder documents client/host/server message formats.
 
 - `GET /host-data` returns:
   - `{ joinUrls: string[], qrDataUrl: string }`
+
+## Lobby HTTP endpoints
+
+All endpoints below are intended for Unity host integrations and are restricted to the host machine.
+
+- `POST /lobby/ensure` returns:
+  - `{ ok: true, roomId: string }` (creates the lobby room if it does not exist)
+- `GET /lobby/state` returns the same payload as the `lobby:state` WebSocket message.
+- `GET /lobby/config` returns:
+  - `{ settings: { requireReady: boolean, allowRejoin: boolean, allowMidgameJoin: boolean, lobbyLocked: boolean, maxPlayers: number | null, maxSpectators: number | null }, phase: "lobby" | "in-game" }`
+- `PUT /lobby/config` accepts:
+  - `{ requireReady?: boolean, allowRejoin?: boolean, allowMidgameJoin?: boolean, maxPlayers?: number | null, maxSpectators?: number | null }`
+  - returns the updated config payload (same shape as `GET /lobby/config`)
+- `POST /lobby/lock` accepts:
+  - `{ locked: boolean }`
+  - returns `{ ok: true, locked: boolean }`
+- `POST /lobby/start` returns:
+  - `{ ok: true }` (or `409` with `{ error: string }`)
+- `POST /lobby/kick` accepts:
+  - `{ targetId: string }`
+  - returns `{ ok: true, targetId: string }`
 
 ## Lobby environment configuration
 

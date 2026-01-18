@@ -37,6 +37,7 @@ const DEFAULT_AVATAR = "\u{1F47E}";
 const STATE_BROADCAST_MS = 250;
 
 export class LobbyRoom extends Room {
+  private static activeRoom: LobbyRoom | null = null;
   private participants = new Map<string, ParticipantInfo>();
   private sessionToParticipant = new Map<string, string>();
   private hostSessions = new Set<string>();
@@ -53,11 +54,17 @@ export class LobbyRoom extends Room {
     maxSpectators: null
   };
 
+  static getActiveRoom() {
+    return LobbyRoom.activeRoom;
+  }
+
   onCreate(options?: { config?: Partial<LobbyConfig> }) {
+    this.autoDispose = false;
     this.config = {
       ...this.config,
       ...(options?.config ?? {})
     };
+    LobbyRoom.activeRoom = this;
     this.hostAddresses = this.getHostAddresses();
     this.stateBroadcastInterval = setInterval(() => {
       if (!this.stateDirty) {
@@ -172,22 +179,10 @@ export class LobbyRoom extends Room {
       if (!this.hostSessions.has(client.sessionId)) {
         return;
       }
-
-      if (this.phase !== "lobby") {
-        return;
+      const result = this.requestGameStart(client.sessionId);
+      if (!result.ok && result.error) {
+        client.send("host:error", { message: result.error });
       }
-
-      if (this.config.requireReady && !this.allReady()) {
-        client.send("host:error", { message: "Not everyone is ready yet." });
-        return;
-      }
-
-      this.phase = "in-game";
-      this.broadcast("game:start", {
-        startedAt: Date.now(),
-        startedBy: client.sessionId
-      });
-      this.markStateDirty();
     });
 
     this.onMessage("host:lock", (client, message: { locked?: boolean }) => {
@@ -195,8 +190,7 @@ export class LobbyRoom extends Room {
         return;
       }
 
-      this.lobbyLocked = Boolean(message.locked);
-      this.markStateDirty();
+      this.setLobbyLock(Boolean(message.locked));
     });
 
     this.onMessage("host:kick", (client, message: { targetId?: string }) => {
@@ -208,7 +202,7 @@ export class LobbyRoom extends Room {
         return;
       }
 
-      this.kickParticipant(message.targetId);
+      this.requestKickParticipant(message.targetId);
     });
   }
 
@@ -377,9 +371,19 @@ export class LobbyRoom extends Room {
       clearInterval(this.stateBroadcastInterval);
       this.stateBroadcastInterval = undefined;
     }
+    if (LobbyRoom.activeRoom === this) {
+      LobbyRoom.activeRoom = null;
+    }
   }
 
-  private broadcastState() {
+  getConfigPayload() {
+    return {
+      settings: { ...this.config, lobbyLocked: this.lobbyLocked },
+      phase: this.phase
+    };
+  }
+
+  getStatePayload() {
     const players = [...this.participants.entries()]
       .filter(([, info]) => info.role === "player")
       .map(([id, info]) => ({
@@ -402,7 +406,7 @@ export class LobbyRoom extends Room {
     const connectedPlayers = players.filter((player) => player.connected);
     const readyCount = connectedPlayers.filter((player) => player.ready).length;
 
-    this.broadcast("lobby:state", {
+    return {
       players,
       spectators,
       count: connectedPlayers.length,
@@ -413,7 +417,66 @@ export class LobbyRoom extends Room {
       allReady: connectedPlayers.length > 0 && readyCount === connectedPlayers.length,
       phase: this.phase,
       settings: { ...this.config, lobbyLocked: this.lobbyLocked }
+    };
+  }
+
+  updateConfig(payload: Partial<LobbyConfig>) {
+    const updated: Partial<LobbyConfig> = {};
+    if (typeof payload.requireReady === "boolean") {
+      updated.requireReady = payload.requireReady;
+    }
+    if (typeof payload.allowRejoin === "boolean") {
+      updated.allowRejoin = payload.allowRejoin;
+    }
+    if (typeof payload.allowMidgameJoin === "boolean") {
+      updated.allowMidgameJoin = payload.allowMidgameJoin;
+    }
+    if (payload.maxPlayers === null || typeof payload.maxPlayers === "number") {
+      updated.maxPlayers = this.normalizeLimit(payload.maxPlayers);
+    }
+    if (payload.maxSpectators === null || typeof payload.maxSpectators === "number") {
+      updated.maxSpectators = this.normalizeLimit(payload.maxSpectators);
+    }
+    this.config = {
+      ...this.config,
+      ...updated
+    };
+    this.broadcast("lobby:config", this.getConfigPayload());
+    this.markStateDirty();
+    return this.getConfigPayload();
+  }
+
+  setLobbyLock(locked: boolean) {
+    this.lobbyLocked = locked;
+    this.broadcast("lobby:config", this.getConfigPayload());
+    this.markStateDirty();
+  }
+
+  requestGameStart(startedBy = "http") {
+    if (this.phase !== "lobby") {
+      return { ok: false, error: "Game already started." };
+    }
+
+    if (this.config.requireReady && !this.allReady()) {
+      return { ok: false, error: "Not everyone is ready yet." };
+    }
+
+    this.phase = "in-game";
+    this.broadcast("game:start", {
+      startedAt: Date.now(),
+      startedBy
     });
+    this.markStateDirty();
+    return { ok: true };
+  }
+
+  requestKickParticipant(targetId: string) {
+    this.kickParticipant(targetId);
+    return { ok: true };
+  }
+
+  private broadcastState() {
+    this.broadcast("lobby:state", this.getStatePayload());
   }
 
   private markStateDirty() {
@@ -552,5 +615,15 @@ export class LobbyRoom extends Room {
       }
     }
     return addresses;
+  }
+
+  private normalizeLimit(value: number | null | undefined) {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    if (!Number.isFinite(value) || value < 0) {
+      return null;
+    }
+    return Math.floor(value);
   }
 }
