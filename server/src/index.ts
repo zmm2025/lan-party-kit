@@ -12,7 +12,7 @@ const { Server, matchMaker } = colyseus;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const port = Number(process.env.PORT ?? 2567);
+const port = Number(process.env.PORT ?? 57493);
 const app = express();
 app.use(express.json());
 const clientPath = path.resolve(__dirname, "..", "..", "client");

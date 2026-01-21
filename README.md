@@ -1,4 +1,4 @@
-# LexPlay LAN Framework
+# Stage Party
 
 Local-first party-game framework for LexPlay / Run Jump Dev. The goal is a Jackbox-style experience: one host machine runs the game server, players join via QR on the same Wi-Fi, and phone browsers act as controllers. The framework is designed to plug into a Unity template later without requiring paid hosting.
 
@@ -13,7 +13,7 @@ npm run dev
 
 The host interface must be opened on the same machine running the server (host connections are only accepted from the server machine).
 
-Open `http://localhost:2567/host` on the host machine. Scan the QR with a phone on the same Wi-Fi.
+Open `http://localhost:57493/host` on the host machine. Scan the QR with a phone on the same Wi-Fi.
 
 ## Repo layout
 

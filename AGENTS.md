@@ -1,7 +1,7 @@
 # AGENTS
 
 ## Project summary
-LexPlay LAN Framework is a local-first party-game framework for LexPlay / Run Jump Dev.
+Stage Party is a local-first party-game framework for LexPlay / Run Jump Dev.
 The goal is a Jackbox-style experience: one host machine runs the game server, players join
 via QR on the same Wi-Fi, and phone browsers act as controllers. The framework is designed
 so a Unity template can plug in later without requiring paid hosting.
@@ -32,7 +32,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:2567/host` on the host machine. Scan the QR with a phone on the same Wi-Fi.
+Open `http://localhost:57493/host` on the host machine. Scan the QR with a phone on the same Wi-Fi.
 
 ## URLs and endpoints
 - `/` phone client
