@@ -39,6 +39,9 @@ Open `http://localhost:2567/host` on the host machine. Scan the QR with a phone 
 - `/host` host page (QR + player list)
 - `/host-data` JSON (QR data + join URLs)
 - `/health` JSON health check
+- `/lobby-settings` host-only JSON (GET to read, POST to update lobby settings)
+- `/lobby-lock` host-only JSON (POST `{ locked: boolean }`)
+- `/lobby-phase` host-only JSON (POST `{ phase: "lobby" | "in-game" }`)
 
 ## Client behavior
 - Join flow: nickname -> `joinOrCreate("lobby")`.
@@ -55,14 +58,12 @@ npm run dev
 ## Lobby configuration
 These flags let game teams decide lobby behavior without code changes:
 ```
-set LOBBY_REQUIRE_READY=true
 set LOBBY_ALLOW_REJOIN=true
 set LOBBY_ALLOW_MIDGAME_JOIN=false
 npm run dev
 ```
 
 The host page (`/host`) shows a QR code for joining and a live player list.
-Players join with nicknames and can ready up if `LOBBY_REQUIRE_READY=true`.
 
 ## Protocol reference
 `protocol/README.md` documents message formats for the lobby and `/host-data` payloads.

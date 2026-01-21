@@ -16,8 +16,6 @@ This folder documents client/host/server message formats.
   - `{ sentAt: number }`
 - `client:nickname` payload:
   - `{ nickname?: string }`
-- `client:ready` payload:
-  - `{ ready?: boolean }`
 - `client:avatar` payload:
   - `{ avatar?: string }`
 - `host:lock` payload:
@@ -26,12 +24,14 @@ This folder documents client/host/server message formats.
   - `{ targetId: string }`
 - `host:start` payload:
   - `{}`
+- `host:config` payload:
+  - `{ settings: { allowRejoin?: boolean, allowMidgameJoin?: boolean, maxPlayers?: number | null, maxSpectators?: number | null } }`
 
 ### Server -> Client
 - `server:event` payload:
   - `{ from: string, receivedAt: number, message: { type: string, payload?: unknown } }`
   - `message.type = "welcome"` payload:
-    - `{ sessionId: string, nickname: string, token: string, role: "player" | "spectator", avatar?: string, rejoined?: boolean, ready?: boolean }`
+    - `{ sessionId: string, nickname: string, token: string, role: "player" | "spectator", avatar?: string, rejoined?: boolean }`
 - `joinOrCreate("lobby")` can reject with errors encoded as JSON in the error message:
   - `{ code: "LOBBY_LOCKED", message: string }` when the host locks the lobby.
   - `{ code: "MIDGAME_JOIN_DISABLED", message: string }` when mid-game joins are disabled.
@@ -39,9 +39,9 @@ This folder documents client/host/server message formats.
 - `server:pong` payload:
   - `{ sentAt: number, receivedAt: number, pingMs: number | null }`
 - `lobby:state` payload:
-  - `{ count: number, totalCount: number, readyCount: number, allReady: boolean, phase: "lobby" | "in-game", settings: { requireReady: boolean, allowRejoin: boolean, allowMidgameJoin: boolean, lobbyLocked: boolean, maxPlayers: number | null, maxSpectators: number | null }, players: Array<{ id: string, nickname: string, ready: boolean, connected: boolean, pingMs: number | null, avatar: string }>, spectatorCount: number, totalSpectatorCount: number, spectators: Array<{ id: string, nickname: string, connected: boolean, pingMs: number | null }> }`
+  - `{ count: number, totalCount: number, phase: "lobby" | "in-game", settings: { allowRejoin: boolean, allowMidgameJoin: boolean, lobbyLocked: boolean, maxPlayers: number | null, maxSpectators: number | null }, players: Array<{ id: string, nickname: string, connected: boolean, pingMs: number | null, avatar: string }>, spectatorCount: number, totalSpectatorCount: number, spectators: Array<{ id: string, nickname: string, connected: boolean, pingMs: number | null }> }`
 - `lobby:config` payload:
-  - `{ settings: { requireReady: boolean, allowRejoin: boolean, allowMidgameJoin: boolean, lobbyLocked: boolean, maxPlayers: number | null, maxSpectators: number | null }, phase: "lobby" | "in-game" }`
+  - `{ settings: { allowRejoin: boolean, allowMidgameJoin: boolean, lobbyLocked: boolean, maxPlayers: number | null, maxSpectators: number | null }, phase: "lobby" | "in-game" }`
 - `game:start` payload:
   - `{ startedAt: number, startedBy: string }`
 - `host:error` payload:
@@ -54,7 +54,20 @@ This folder documents client/host/server message formats.
 - `GET /host-data` returns:
   - `{ joinUrls: string[], qrDataUrl: string }`
 
+## Host control endpoints
+
+- `GET /lobby-settings` returns:
+  - `{ settings: { allowRejoin: boolean, allowMidgameJoin: boolean, maxPlayers: number | null, maxSpectators: number | null }, lobbyLocked: boolean, phase: "lobby" | "in-game" }`
+- `POST /lobby-settings` accepts:
+  - `{ settings?: { allowRejoin?: boolean, allowMidgameJoin?: boolean, maxPlayers?: number | null, maxSpectators?: number | null } }`
+- `POST /lobby-lock` accepts:
+  - `{ locked: boolean }`
+- `POST /lobby-phase` accepts:
+  - `{ phase: "lobby" | "in-game" }`
+
 ## Lobby environment configuration
 
+- `LOBBY_ALLOW_REJOIN` (boolean): allow clients to rejoin using the stored player token.
+- `LOBBY_ALLOW_MIDGAME_JOIN` (boolean): allow joining after the game has started.
 - `LOBBY_MAX_PLAYERS` (number): maximum number of player slots (unset = unlimited).
 - `LOBBY_MAX_SPECTATORS` (number): maximum number of spectator slots (unset = unlimited).

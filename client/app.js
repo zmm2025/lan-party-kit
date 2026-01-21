@@ -6,7 +6,6 @@ const avatarPicker = document.getElementById("avatar-picker");
 const modeRow = document.querySelector(".mode-row");
 const playerCountEl = document.getElementById("player-count");
 const playersEl = document.getElementById("players");
-const readyButton = document.getElementById("ready");
 const pingValueEl = document.getElementById("ping-value");
 const pingWifiEl = document.getElementById("ping-wifi");
 const nicknameClearButton = document.getElementById("nickname-clear");
@@ -25,7 +24,6 @@ const {
 
 let room = null;
 let playerToken = localStorage.getItem("lpk_player_token");
-let isReady = false;
 let pingInterval = null;
 let currentRole = "player";
 let currentAvatar = "";
@@ -206,23 +204,9 @@ const connect = async () => {
       updateNicknameControls();
     });
 
-    room.onMessage("lobby:config", (config) => {
-      updateReadyUi(config?.settings);
-    });
-
     room.onMessage("lobby:state", (state) => {
       renderPlayers(playersEl, playerCountEl, state);
-      updateReadyUi(state.settings, state);
       updateAvatarUi(state);
-    });
-
-    readyButton.addEventListener("click", () => {
-      if (!room) {
-        return;
-      }
-      isReady = !isReady;
-      room.send("client:ready", { ready: isReady });
-      updateReadyButton();
     });
 
     startPingLoop();
@@ -259,7 +243,6 @@ leaveButton?.addEventListener("click", () => {
     pingInterval = null;
   }
   updateJoinUi();
-  updateReadyUi();
   updateNicknameControls();
 });
 
@@ -302,7 +285,6 @@ modeInputs.forEach((input) => {
   input.addEventListener("change", () => {
     currentRole = getSelectedRole();
     updateAvatarUi();
-    updateReadyUi();
   });
 });
 
@@ -340,40 +322,6 @@ if (avatarPicker) {
   avatarPicker.addEventListener("click", handleAvatarPickerEvent);
   avatarPicker.addEventListener("pointerup", handleAvatarPickerEvent);
 }
-
-const updateReadyUi = (settings, state) => {
-  const requireReady = settings?.requireReady;
-  if (!requireReady) {
-    readyButton.classList.add("hidden");
-    readyButton.disabled = true;
-    return;
-  }
-
-  if (currentRole === "spectator") {
-    readyButton.classList.add("hidden");
-    readyButton.disabled = true;
-    return;
-  }
-
-  readyButton.classList.remove("hidden");
-  readyButton.disabled = !room;
-
-  if (state && playerToken) {
-    const me = (state.players || []).find((player) => player.id === playerToken);
-    if (me) {
-      isReady = Boolean(me.ready);
-    }
-  }
-
-  updateReadyButton();
-};
-
-const updateReadyButton = () => {
-  if (!readyButton) {
-    return;
-  }
-  readyButton.textContent = isReady ? "Ready (click to unready)" : "Ready up";
-};
 
 const normalizeAvatar = (value) => {
   const trimmed = (value ?? "").trim();

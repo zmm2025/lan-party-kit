@@ -15,7 +15,6 @@ type ParticipantRole = "player" | "spectator";
 
 type ParticipantInfo = {
   nickname: string;
-  ready: boolean;
   token: string;
   connected: boolean;
   role: ParticipantRole;
@@ -24,11 +23,15 @@ type ParticipantInfo = {
 };
 
 type LobbyConfig = {
-  requireReady: boolean;
   allowRejoin: boolean;
   allowMidgameJoin: boolean;
   maxPlayers: number | null;
   maxSpectators: number | null;
+};
+
+type LobbyStateSnapshot = {
+  lobbyLocked: boolean;
+  phase: "lobby" | "in-game";
 };
 
 const MAX_NICKNAME_LENGTH = 20;
@@ -45,19 +48,34 @@ export class LobbyRoom extends Room {
   private hostAddresses = new Set<string>();
   private stateDirty = false;
   private stateBroadcastInterval?: NodeJS.Timeout;
+  private onConfigUpdate?: (config: LobbyConfig) => void;
+  private onStateUpdate?: (state: LobbyStateSnapshot) => void;
   private config: LobbyConfig = {
-    requireReady: false,
     allowRejoin: true,
     allowMidgameJoin: false,
-    maxPlayers: null,
+    maxPlayers: 8,
     maxSpectators: null
   };
 
-  onCreate(options?: { config?: Partial<LobbyConfig> }) {
+  onCreate(options?: {
+    config?: Partial<LobbyConfig>;
+    lobbyLocked?: boolean;
+    phase?: "lobby" | "in-game";
+    onConfigUpdate?: (config: LobbyConfig) => void;
+    onStateUpdate?: (state: LobbyStateSnapshot) => void;
+  }) {
     this.config = {
       ...this.config,
       ...(options?.config ?? {})
     };
+    this.onConfigUpdate = options?.onConfigUpdate;
+    this.onStateUpdate = options?.onStateUpdate;
+    if (typeof options?.lobbyLocked === "boolean") {
+      this.lobbyLocked = options.lobbyLocked;
+    }
+    if (options?.phase === "lobby" || options?.phase === "in-game") {
+      this.phase = options.phase;
+    }
     this.hostAddresses = this.getHostAddresses();
     this.stateBroadcastInterval = setInterval(() => {
       if (!this.stateDirty) {
@@ -98,25 +116,6 @@ export class LobbyRoom extends Room {
         participantId
       );
       participant.nickname = nickname;
-      this.markStateDirty();
-    });
-
-    this.onMessage("client:ready", (client, message: { ready?: boolean }) => {
-      if (this.hostSessions.has(client.sessionId)) {
-        return;
-      }
-
-      const participantId = this.sessionToParticipant.get(client.sessionId);
-      if (!participantId) {
-        return;
-      }
-
-      const participant = this.participants.get(participantId);
-      if (!participant || participant.role !== "player") {
-        return;
-      }
-
-      participant.ready = Boolean(message.ready);
       this.markStateDirty();
     });
 
@@ -177,12 +176,8 @@ export class LobbyRoom extends Room {
         return;
       }
 
-      if (this.config.requireReady && !this.allReady()) {
-        client.send("host:error", { message: "Not everyone is ready yet." });
-        return;
-      }
-
       this.phase = "in-game";
+      this.persistState();
       this.broadcast("game:start", {
         startedAt: Date.now(),
         startedBy: client.sessionId
@@ -196,7 +191,20 @@ export class LobbyRoom extends Room {
       }
 
       this.lobbyLocked = Boolean(message.locked);
+      this.persistState();
       this.markStateDirty();
+    });
+
+    this.onMessage("host:config", (client, message: { settings?: Partial<LobbyConfig> }) => {
+      if (!this.hostSessions.has(client.sessionId)) {
+        return;
+      }
+
+      if (!message?.settings) {
+        return;
+      }
+
+      this.updateConfig(message.settings);
     });
 
     this.onMessage("host:kick", (client, message: { targetId?: string }) => {
@@ -303,7 +311,6 @@ export class LobbyRoom extends Room {
             nickname: existingParticipant.nickname,
             token: existingParticipant.token,
             rejoined: true,
-            ready: existingParticipant.ready,
             role: existingParticipant.role,
             avatar:
               existingParticipant.role === "player"
@@ -331,7 +338,6 @@ export class LobbyRoom extends Room {
     const token = playerToken || randomUUID();
     const participant: ParticipantInfo = {
       nickname,
-      ready: false,
       token,
       connected: true,
       role,
@@ -385,7 +391,6 @@ export class LobbyRoom extends Room {
       .map(([id, info]) => ({
         id,
         nickname: info.nickname,
-        ready: info.ready,
         connected: info.connected,
         pingMs: info.lastPingMs ?? null,
         avatar: info.avatar ?? DEFAULT_AVATAR
@@ -400,7 +405,6 @@ export class LobbyRoom extends Room {
       }));
 
     const connectedPlayers = players.filter((player) => player.connected);
-    const readyCount = connectedPlayers.filter((player) => player.ready).length;
 
     this.broadcast("lobby:state", {
       players,
@@ -409,8 +413,6 @@ export class LobbyRoom extends Room {
       totalCount: players.length,
       spectatorCount: spectators.filter((spectator) => spectator.connected).length,
       totalSpectatorCount: spectators.length,
-      readyCount,
-      allReady: connectedPlayers.length > 0 && readyCount === connectedPlayers.length,
       phase: this.phase,
       settings: { ...this.config, lobbyLocked: this.lobbyLocked }
     });
@@ -470,14 +472,87 @@ export class LobbyRoom extends Room {
     return role === "spectator" ? "LOBBY_FULL_SPECTATOR" : "LOBBY_FULL_PLAYER";
   }
 
-  private allReady() {
-    const connectedPlayers = [...this.participants.values()].filter(
-      (participant) => participant.connected && participant.role === "player"
-    );
-    if (connectedPlayers.length === 0) {
-      return false;
+  private updateConfig(update: Partial<LobbyConfig>) {
+    const next: LobbyConfig = { ...this.config };
+
+    if (typeof update.allowRejoin === "boolean") {
+      next.allowRejoin = update.allowRejoin;
     }
-    return connectedPlayers.every((player) => player.ready);
+    if (typeof update.allowMidgameJoin === "boolean") {
+      next.allowMidgameJoin = update.allowMidgameJoin;
+    }
+
+    if ("maxPlayers" in update) {
+      const normalized = this.normalizeLimit(update.maxPlayers);
+      if (normalized !== undefined) {
+        next.maxPlayers = normalized;
+      }
+    }
+
+    if ("maxSpectators" in update) {
+      const normalized = this.normalizeLimit(update.maxSpectators);
+      if (normalized !== undefined) {
+        next.maxSpectators = normalized;
+      }
+    }
+
+    this.config = next;
+    if (this.onConfigUpdate) {
+      this.onConfigUpdate({ ...this.config });
+    }
+    this.markStateDirty();
+    this.broadcast("lobby:config", {
+      settings: { ...this.config, lobbyLocked: this.lobbyLocked },
+      phase: this.phase
+    });
+  }
+
+  public applyConfigUpdate(update: Partial<LobbyConfig>) {
+    this.updateConfig(update);
+  }
+
+  public applyLobbyLock(locked: boolean) {
+    this.lobbyLocked = Boolean(locked);
+    this.persistState();
+    this.markStateDirty();
+  }
+
+  public applyPhaseUpdate(phase: "lobby" | "in-game") {
+    if (phase !== "lobby" && phase !== "in-game") {
+      return;
+    }
+    if (this.phase === phase) {
+      return;
+    }
+    this.phase = phase;
+    this.persistState();
+    if (phase === "in-game") {
+      this.broadcast("game:start", {
+        startedAt: Date.now(),
+        startedBy: "http"
+      });
+    }
+    this.markStateDirty();
+  }
+
+  private normalizeLimit(limit?: number | null) {
+    if (limit === null) {
+      return null;
+    }
+    if (typeof limit !== "number" || !Number.isFinite(limit) || limit < 0) {
+      return undefined;
+    }
+    return Math.floor(limit);
+  }
+
+  private persistState() {
+    if (!this.onStateUpdate) {
+      return;
+    }
+    this.onStateUpdate({
+      lobbyLocked: this.lobbyLocked,
+      phase: this.phase
+    });
   }
 
   private normalizeAvatar(raw?: string) {

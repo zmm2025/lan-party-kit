@@ -22,6 +22,37 @@
     </script>
     <script src="/client/config.js"></script>
     <script src="/client/shared.js"></script>
+    <style>
+      input[type="number"]::-webkit-outer-spin-button,
+      input[type="number"]::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      input[type="number"] {
+        -moz-appearance: textfield;
+      }
+      input.lobby-toggle {
+        appearance: none;
+        width: 1rem;
+        height: 1rem;
+        border-radius: 0.25rem;
+        border: 1px solid #475569;
+        background-color: rgba(15, 23, 42, 0.8);
+        cursor: pointer;
+      }
+      input.lobby-toggle:checked {
+        border-color: #fbbf24;
+        background-color: #fbbf24;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%230f172a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 8.5l3 3 7-7'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: 70% 70%;
+      }
+      input.lobby-toggle:focus-visible {
+        outline: 2px solid rgba(251, 191, 36, 0.3);
+        outline-offset: 2px;
+      }
+    </style>
   </head>
   <body class="min-h-screen bg-slate-950 text-slate-100 font-sans">
     <main class="mx-auto flex min-h-screen w-full max-w-5xl flex-col justify-center px-4 py-8">
@@ -48,8 +79,15 @@
                 </div>
               </div>
               <div class="flex flex-wrap items-center gap-3 text-sm">
-                <span id="status" class="rounded-full border border-slate-700 px-3 py-1 text-slate-200">
-                  Lobby offline.
+                <span
+                  id="status"
+                  class="inline-flex items-center gap-2 rounded-full border border-slate-700 px-3 py-1 text-slate-200"
+                >
+                  <span
+                    id="status-dot"
+                    class="h-2.5 w-2.5 rounded-full bg-slate-500 shadow-[0_0_10px_rgba(148,163,184,0.5)]"
+                  ></span>
+                  <span id="status-text">Lobby offline.</span>
                 </span>
               </div>
             </div>
@@ -59,15 +97,108 @@
                 class="rounded-2xl border border-slate-700 bg-slate-900/80 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-amber-400/60 hover:text-amber-200 disabled:cursor-not-allowed disabled:opacity-60"
                 disabled
               >
-                Lock Lobby
+                <span class="inline-flex items-center gap-1.5">
+                  <span id="lock-icon" class="text-base">🔒</span>
+                  <span id="lock-label">Lock Lobby</span>
+                </span>
               </button>
               <button
                 id="start-game"
-                class="rounded-2xl bg-amber-400 px-4 py-2 text-sm font-semibold text-slate-900 shadow-lg shadow-amber-500/20 transition hover:-translate-y-0.5 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+                class="rounded-2xl bg-amber-400 px-4 py-2 text-sm font-semibold text-slate-900 shadow-lg shadow-amber-500/20 transition hover:-translate-y-0.5 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:bg-amber-400"
                 disabled
               >
                 Start Game
               </button>
+            </div>
+            <div class="rounded-2xl border border-slate-800/70 bg-slate-950/70 p-4">
+              <p class="text-sm font-semibold text-slate-200">Lobby settings</p>
+              <form id="lobby-settings" class="mt-3 grid gap-4 text-sm text-slate-200">
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <label class="flex flex-col gap-2">
+                    <span class="text-xs uppercase tracking-[0.2em] text-slate-400">Max players</span>
+                    <div class="flex items-stretch overflow-hidden rounded-xl border border-slate-700 bg-slate-900/80">
+                      <input
+                        id="max-players"
+                        type="number"
+                        min="0"
+                        step="1"
+                        placeholder="Unlimited"
+                        class="w-full bg-transparent px-3 py-2 text-center text-sm text-slate-100 focus:outline-none"
+                      />
+                      <div class="flex flex-col border-l border-slate-700">
+                        <button
+                          type="button"
+                          data-step="1"
+                          class="flex h-full w-9 items-center justify-center border-b border-slate-700 bg-slate-900/90 text-[10px] font-semibold text-slate-100 transition hover:bg-amber-400/20 hover:text-amber-200"
+                          aria-label="Increase max players"
+                        >
+                          ▲
+                        </button>
+                        <button
+                          type="button"
+                          data-step="-1"
+                          class="flex h-full w-9 items-center justify-center bg-slate-900/90 text-[10px] font-semibold text-slate-100 transition hover:bg-amber-400/20 hover:text-amber-200"
+                          aria-label="Decrease max players"
+                        >
+                          ▼
+                        </button>
+                      </div>
+                    </div>
+                  </label>
+                  <label class="flex flex-col gap-2">
+                    <span class="text-xs uppercase tracking-[0.2em] text-slate-400">Max spectators</span>
+                    <div class="flex items-stretch overflow-hidden rounded-xl border border-slate-700 bg-slate-900/80">
+                      <input
+                        id="max-spectators"
+                        type="number"
+                        min="0"
+                        step="1"
+                        placeholder="Unlimited"
+                        class="w-full bg-transparent px-3 py-2 text-center text-sm text-slate-100 focus:outline-none"
+                      />
+                      <div class="flex flex-col border-l border-slate-700">
+                        <button
+                          type="button"
+                          data-step="1"
+                          class="flex h-full w-9 items-center justify-center border-b border-slate-700 bg-slate-900/90 text-[10px] font-semibold text-slate-100 transition hover:bg-amber-400/20 hover:text-amber-200"
+                          aria-label="Increase max spectators"
+                        >
+                          ▲
+                        </button>
+                        <button
+                          type="button"
+                          data-step="-1"
+                          class="flex h-full w-9 items-center justify-center bg-slate-900/90 text-[10px] font-semibold text-slate-100 transition hover:bg-amber-400/20 hover:text-amber-200"
+                          aria-label="Decrease max spectators"
+                        >
+                          ▼
+                        </button>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+                <div class="rounded-2xl border border-slate-800/70 bg-slate-900/50 p-3">
+                  <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Lobby access</p>
+                  <div class="mt-3 grid gap-3">
+                    <label class="flex items-center justify-between gap-3 rounded-xl border border-slate-800/70 bg-slate-900/60 px-3 py-2 transition hover:border-amber-400/50 hover:bg-slate-900/80 cursor-pointer">
+                      <span class="text-sm text-slate-200">Block rejoin</span>
+                      <input
+                        id="allow-rejoin"
+                        type="checkbox"
+                        class="lobby-toggle"
+                      />
+                    </label>
+                    <label class="flex items-center justify-between gap-3 rounded-xl border border-slate-800/70 bg-slate-900/60 px-3 py-2 transition hover:border-amber-400/50 hover:bg-slate-900/80 cursor-pointer">
+                      <span class="text-sm text-slate-200">Allow mid-game joins</span>
+                      <input
+                        id="allow-midgame"
+                        type="checkbox"
+                        class="lobby-toggle"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </form>
             </div>
           </div>
           <div class="flex-1 space-y-4">

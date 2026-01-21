@@ -70,9 +70,6 @@ window.AppShared = {
       }
 
       const tags = [];
-      if (player.ready) {
-        tags.push("ready");
-      }
       if (player.connected === false) {
         tags.push("away");
       }

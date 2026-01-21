@@ -26,6 +26,11 @@ Open `http://localhost:2567/host` on the host machine. Scan the QR with a phone 
 - Developer-focused details (endpoints, environment flags, lobby behavior, architecture diagram) live in `AGENTS.md`.
 - Protocol message formats are documented in `protocol/README.md`.
 
+## Unity host control
+
+Unity-based hosts can configure the lobby via host-only HTTP endpoints exposed by the server
+(see `AGENTS.md` for `/lobby-settings`, `/lobby-lock`, and `/lobby-phase`).
+
 ## Project status
 
 Early development. Next planned steps include Unity host integration and the first game flow.
